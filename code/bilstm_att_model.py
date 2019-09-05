@@ -19,12 +19,12 @@ class Model:
         self.BATCH_SIZE = 64
         self.should_stop = False
         self.ll = 3
-        self.MODEL_PATH = './model/bilstm_att/bilstm_att_model'
-        self.MODEL_DIC = './model/bilstm_att/'
+        self.MODEL_PATH = '../model/bilstm_att/bilstm_att_model'
+        self.MODEL_DIC = '../model/bilstm_att/'
         self.x = tf.placeholder(tf.int32, [None, None])
         self.y = tf.placeholder(tf.float32, [None, None])
-        self.ACC_PATH = './result/bilstm_att_acc'
-        self.LOSS_PATH = './result/bilstm_att_loss'
+        self.ACC_PATH = '../result/bilstm_att_acc'
+        self.LOSS_PATH = '../result/bilstm_att_loss'
         self.score, self.acc, self.loss, self.train_step = self.run()
 
     def run(self):
@@ -127,25 +127,26 @@ class Model:
                     print('step:{}  [{}/{}]'.format(i, end, len(x_train)))
                     print('acc:{}, loss:{}'.format(acc_train, loss_train))
 
-            acc_t, loss_t = sess.run([self.acc, self.loss], {self.x: x_train, self.y: y_train})
-            acc_train_list.append(acc_t)
-            loss_train_list.append(loss_t)
+                acc_t, loss_t = sess.run([self.acc, self.loss], {self.x: x_train[:1000], self.y: y_train[:1000]})
+                acc_train_list.append(acc_t)
+                loss_train_list.append(loss_t)
 
-            acc_te, loss_te = sess.run([self.acc, self.loss], {self.x: x_dev, self.y: y_dev})
-            acc_test_list.append(acc_te)
-            loss_test_list.append(loss_te)
+                acc_te, loss_te = sess.run([self.acc, self.loss], {self.x: x_dev, self.y: y_dev})
+                acc_test_list.append(acc_te)
+                loss_test_list.append(loss_te)
 
-            print('Epoch{}----acc:{},loss:{},val-acc:{},val_loss:{}'.format(step, acc_t, loss_t, acc_te, loss_te))
-            if loss_te > loss_stop:
-                if n > self.ll:
-                    self.should_stop = True
-                    es_step = step
+                print('Epoch{}----acc:{},loss:{},val-acc:{},val_loss:{}'.format(step, acc_t, loss_t, acc_te, loss_te))
+                if loss_te > loss_stop:
+                    if n > self.ll:
+                        self.should_stop = True
+                        es_step = step
+                    else:
+                        n += 1
                 else:
-                    n += 1
-            else:
-                saver.save(sess, self.MODEL_PATH)
-                n = 0
-                loss_stop = loss_te
+                    saver.save(sess, self.MODEL_PATH)
+                    n = 0
+                    loss_stop = loss_te
+
                 step += 1
 
             if self.should_stop:
