@@ -1,6 +1,10 @@
 import data
 import bilstm_att_model
 from sklearn.model_selection import train_test_split
+import numpy as np
+from sklearn.metrics import classification_report
+import pickle
+import pandas as pd
 
 
 if __name__ == '__main__':
@@ -15,6 +19,8 @@ if __name__ == '__main__':
 
     x_train, x_dev, y_train, y_dev = train_test_split(train_id, label, random_state=42, test_size=0.2, stratify=label)
 
-
     model = bilstm_att_model.Model()
-    model.train(x_train, y_train, x_dev, y_dev, epoch=20)
+    #model.train(x_train, y_train, x_dev, y_dev, epoch=20)
+    classfication_report = model.verify(x_dev, y_dev)
+    print(classfication_report)
+    model.output(test_id, data.text_id, '../result/submit.csv')
