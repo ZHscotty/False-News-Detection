@@ -2,6 +2,7 @@ import pandas as pd
 import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
+from sklearn.metrics import classification_report
 
 
 class Model:
@@ -29,18 +30,16 @@ class Model:
 
     def run(self):
         # 1.Embedding
-        # embedd 是词的向量表示
         embed_maxtrix = tf.get_variable('embedding', [self.VOCAB_SIZE + 1, self.EMBED_SIZE],
                                         initializer=tf.random_normal_initializer)
         embedd = tf.nn.embedding_lookup(embed_maxtrix, self.x)
 
-        # 2.bilstm
+        # 2.bilstm layer
         ##定义两个lstm
         cell_fw = tf.contrib.rnn.BasicLSTMCell(self.LSTM_HIDDEN_SIZE)
         cell_bw = tf.contrib.rnn.BasicLSTMCell(self.LSTM_HIDDEN_SIZE)
         lstm_out, _ = tf.nn.bidirectional_dynamic_rnn(cell_fw=cell_fw, cell_bw=cell_bw, inputs=embedd,
                                                       dtype=tf.float32, )
-        # 取最后一个cell状态作为句子的表示
         # lstm_out = (batch, maxlen, hidden_size)
         lstm_output = tf.concat(lstm_out, 2)
 
@@ -159,7 +158,7 @@ class Model:
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
         plt.savefig(self.ACC_PATH)
-        plt.show()
+        plt.close()
 
         plt.plot(loss_train_list)
         plt.plot(loss_test_list)
@@ -167,12 +166,41 @@ class Model:
         plt.xlabel('epoch')
         plt.legend(['train', 'test'], loc='upper left')
         plt.savefig(self.LOSS_PATH)
-        plt.show()
+        plt.close()
 
     def predict(self, x_test):
         saver = tf.train.Saver()
         with tf.Session() as sess:
             ckpt = tf.train.latest_checkpoint(self.MODEL_DIC)  # 找到存储变量值的位置
             saver.restore(sess, ckpt)
-            predict = sess.run([self.score], {self.x: x_test})
-            return np.argmax(predict, 1)
+            predict = sess.run(self.score, {self.x: x_test})
+            return predict
+
+    def verify(self, x_dev, y_dev):
+        # 验证集上做一下验证
+        dev_predict = self.predict(x_dev)
+        dev_predict = np.argmax(dev_predict, axis=1)
+        dev_predict = list(dev_predict)
+        y_pre = []
+        for x in dev_predict:
+            y_pre.append(x)
+        dev_true = np.argmax(y_dev, axis=1)
+        dev_true = list(dev_true)
+        y_true = []
+        for k in dev_true:
+            y_true.append(k)
+        target_names = ['False News', 'True News']
+        return classification_report(y_true, y_pre, target_names=target_names)
+
+    def output(self, x_test, y_id, path):
+        # 结果输出
+        test_predict = self.predict(x_test)
+        test_predict = np.argmax(test_predict, axis=1)
+        test_predict = list(test_predict)
+        y_test = []
+        for x in test_predict:
+            y_test.append(x)
+        result = {'id': y_id, 'label': y_test}
+        result = pd.DataFrame(result)
+        result.to_csv(path, index=False)
+        print('output ok!')
