@@ -15,4 +15,5 @@ https://biendata.com/competition/falsenews/
 1.bisltm+att(填充方式为pre) 测试集效果0.79
 2.bilstm+att(填充方式为post) 测试集效果0.77
 3.bilstm+att(发现之前bilstm后没加激活和dropout，加上后) 测试集效果0.77
-4.
+4.cnn+bilstm+att 测试集效果0.70
+5.bilstm+att(使用seqlen过滤padding的值)

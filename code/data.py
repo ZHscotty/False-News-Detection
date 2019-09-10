@@ -12,7 +12,7 @@ class Data:
         self.train_path = train_path
         self.test_path = test_path
         self.text_train, self.label, self.text_test, self.text_id = self.load_data()
-        self.train_id, self.label, self.test_id, self.word2index = self.data_process(self.text_train, self.label, self.text_test)
+        self.train_id, self.label, self.test_id, self.word2index, self.seq_len = self.data_process(self.text_train, self.label, self.text_test)
         self.index2word = self.index2word(self.word2index)
 
     def load_data(self):
@@ -60,14 +60,53 @@ class Data:
             index2word[word2index[x]] = x
         return index2word
 
+    def get_seqlen(self, train_id):
+        seqlen = []
+        for x in train_id:
+            if len(x) < 300:
+                seqlen.append(len(x))
+            else:
+                seqlen.append(300)
+        return seqlen
+
 
     def data_process(self, train_data, label, test_data):
+        seqlen = []
         x_seg, words = self.segement(train_data)
         test_seg, _ = self.segement(test_data)
         word2index = self.word2index(words)
         train_id = self.word2id(x_seg, word2index)
+        seqlen.append(self.get_seqlen(train_id))
         test_id = self.word2id(test_seg, word2index)
+        seqlen.append(self.get_seqlen(test_id))
         test_id = pad_sequences(test_id, maxlen=300, padding='post', truncating='post')
         train_id = pad_sequences(train_id, maxlen=300, padding='post', truncating='post')
         label = to_categorical(label, num_classes=2)
-        return train_id, label, test_id, word2index
+        return train_id, label, test_id, word2index, seqlen
+
+    def get_words_id(self, train_id):
+        # words_id 包括所有的word
+        words_id = []
+        for x in train_id:
+            words_id.extend(x)
+        return words_id
+
+    def get_embedding_set(self, words_id, mode, window_size=None):
+        if mode == 'cbow':
+            start = 0
+            x = []
+            y = []
+            while start+window_size <= len(words_id):
+                x_temp = words_id[start:start + window_size]
+                y_temp = [words_id[start + (window_size // 2)]]
+                x_temp.pop(window_size // 2)
+                x.append(x_temp)
+                y.append(y_temp)
+                start += 1
+            return x, y
+
+
+
+
+
+

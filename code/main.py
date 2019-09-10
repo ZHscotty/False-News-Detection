@@ -11,6 +11,8 @@ if __name__ == '__main__':
     path_train = '../data/train.csv'
     path_test = '../data/test_stage1.csv'
     data = data.Data(path_train, path_test)
+    seq_len = data.seq_len[0]
+    seq_len_test = data.seq_len[1]
     train_id = data.train_id
     label = data.label
     test_id = data.test_id
@@ -18,9 +20,12 @@ if __name__ == '__main__':
     index2word = data.index2word
 
     x_train, x_dev, y_train, y_dev = train_test_split(train_id, label, random_state=42, test_size=0.2, stratify=label)
+    seqlen_train, seqlen_dev, _, _ = train_test_split(seq_len, label, random_state=42, test_size=0.2, stratify=label)
+
 
     model = bilstm_att_model.Model()
-    #model.train(x_train, y_train, x_dev, y_dev, epoch=20)
-    classfication_report = model.verify(x_dev, y_dev)
+    model.train(x_train, y_train, x_dev, y_dev, seqlen_train, seqlen_dev, epoch=20)
+    classfication_report = model.verify(x_dev, y_dev, seqlen_dev)
     print(classfication_report)
-    model.output(test_id, data.text_id, '../result/submit.csv')
+    model.output(test_id, data.text_id, seq_len_test, '../result/submit.csv')
+
