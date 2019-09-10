@@ -13,3 +13,6 @@ https://biendata.com/competition/falsenews/
 
 效果记录：
 1.bisltm+att(填充方式为pre) 测试集效果0.79
+2.bilstm+att(填充方式为post) 测试集效果0.77
+3.bilstm+att(发现之前bilstm后没加激活和dropout，加上后) 测试集效果0.77
+4.
