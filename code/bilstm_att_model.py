@@ -8,7 +8,9 @@ from sklearn.metrics import classification_report
 class Model:
     """docstring for ClassName"""
 
-    def __init__(self):
+    def __init__(self, index2word, embedding_matrix):
+        self.index2word = index2word
+        self.embedding_matrix = embedding_matrix
         self.EMBED_SIZE = 200
         self.LSTM_HIDDEN_SIZE = 128
         self.VOCAB_SIZE = 76781
@@ -16,37 +18,42 @@ class Model:
         self.HIDDEN_SIZE = 80
         self.DROP = 0.5
         self.TYPE_NUM = 2
-        self.LR = 0.001
-        self.BATCH_SIZE = 64
+        self.LR = 0.0001
+        self.BATCH_SIZE = 128
         self.should_stop = False
         self.ll = 3
-        self.MODEL_PATH = '../model/bilstm_att_seq/bilstm_att_model'
-        self.MODEL_DIC = '../model/bilstm_att_seq/'
+        self.MODEL_PATH = '../model/bilstm_att/bilstm_att_model'
+        self.MODEL_DIC = '../model/bilstm_att/'
         self.x = tf.placeholder(tf.int32, [None, None])
         self.y = tf.placeholder(tf.float32, [None, None])
         self.seq_len = tf.placeholder(tf.int32, [None])
-        self.ACC_PATH = '../result/bilstm_att_seq_acc'
-        self.LOSS_PATH = '../result/bilstm_att_seq_loss'
-        self.score, self.acc, self.loss, self.train_step = self.run()
+        self.ACC_PATH = '../result/bilstm_att_acc'
+        self.LOSS_PATH = '../result/bilstm_att_loss'
+        self.score, self.acc, self.loss, self.train_step = self.run(index2word, embedding_matrix, mode='train')
 
-    def run(self):
+    def run(self, index2word, embedding_matrix, mode):
         # 1.Embedding
         # embedd 是词的向量表示
-        embed_maxtrix = tf.get_variable('embedding', [self.VOCAB_SIZE + 1, self.EMBED_SIZE],
+        embed_maxtrix = tf.get_variable('embedding', [self.VOCAB_SIZE, self.EMBED_SIZE],
                                         initializer=tf.random_normal_initializer)
+        for i in range(self.VOCAB_SIZE):
+            if index2word[i] in embedding_matrix:
+                embedding_matrix[i] = embedding_matrix[index2word[i]]
         embedd = tf.nn.embedding_lookup(embed_maxtrix, self.x)
+
 
         # 2.bilstm
         ##定义两个lstm
         cell_fw = tf.contrib.rnn.BasicLSTMCell(self.LSTM_HIDDEN_SIZE)
         cell_bw = tf.contrib.rnn.BasicLSTMCell(self.LSTM_HIDDEN_SIZE)
         lstm_out, _ = tf.nn.bidirectional_dynamic_rnn(cell_fw=cell_fw, cell_bw=cell_bw, inputs=embedd,
-                                                      dtype=tf.float32, sequence_length=self.seq_len)
+                                                      dtype=tf.float32)
         # 取最后一个cell状态作为句子的表示
         # lstm_out = (batch, maxlen, hidden_size)
         lstm_output = tf.concat(lstm_out, 2)
         lstm_output = tf.nn.relu(lstm_output)
-        lstm_output = tf.nn.dropout(lstm_output, self.DROP)
+        if mode == 'train':
+            lstm_output = tf.nn.dropout(lstm_output, self.DROP)
 
         # 3.Attention Layer
         with tf.variable_scope('Attfw'):
@@ -101,7 +108,7 @@ class Model:
 
         return score, acc, loss, train_step
 
-    def train(self, x_train, y_train, x_dev, y_dev, seqlen_train, seqlen_dev, epoch):
+    def train(self, x_train, y_train, x_dev, y_dev, epoch, seqlen_train=None, seqlen_dev=None):
         # 模型的保存和加载
         saver = tf.train.Saver()
         with tf.Session() as sess:
@@ -124,31 +131,31 @@ class Model:
                     end = begin + self.BATCH_SIZE
                     x_batch = x_train[begin:end]
                     y_batch = y_train[begin:end]
-                    seqlen_batch = seqlen_train[begin:end]
+                    #seqlen_batch = seqlen_train[begin:end]
                     begin = end
                     ###输出训练参数
                     _, acc_train, loss_train, pred = sess.run([self.train_step, self.acc, self.loss, self.score],
-                                                              {self.x: x_batch, self.y: y_batch, self.seq_len: seqlen_batch})
+                                                              {self.x: x_batch, self.y: y_batch})
                     print('step:{}  [{}/{}]'.format(i, end, len(x_train)))
                     print('acc:{}, loss:{}'.format(acc_train, loss_train))
 
-                acc_t, loss_t = sess.run([self.acc, self.loss], {self.x: x_train[:1000], self.y: y_train[:1000], self.seq_len: seqlen_train[:1000]})
+                acc_t, loss_t = sess.run([self.acc, self.loss], {self.x: x_train[:1000], self.y: y_train[:1000]})
                 acc_train_list.append(acc_t)
                 loss_train_list.append(loss_t)
 
-                acc_te, loss_te = sess.run([self.acc, self.loss], {self.x: x_dev, self.y: y_dev, self.seq_len: seqlen_dev})
+                acc_te, loss_te = sess.run([self.acc, self.loss], {self.x: x_dev, self.y: y_dev})
                 acc_test_list.append(acc_te)
                 loss_test_list.append(loss_te)
 
                 print('Epoch{}----acc:{},loss:{},val-acc:{},val_loss:{}'.format(step, acc_t, loss_t, acc_te, loss_te))
                 if loss_te > loss_stop:
-                    if n > self.ll:
+                    if n >= self.ll:
                         self.should_stop = True
-                        es_step = step
                     else:
                         n += 1
                 else:
                     saver.save(sess, self.MODEL_PATH)
+                    es_step = step
                     n = 0
                     loss_stop = loss_te
 
@@ -174,15 +181,16 @@ class Model:
         plt.savefig(self.LOSS_PATH)
         plt.close()
 
-    def predict(self, x_test, seqlen_test):
+    def predict(self, x_test, seqlen_test=None):
+        score, _, _, _ = self.run(self.index2word, self.embedding_matrix, mode='test')
         saver = tf.train.Saver()
         with tf.Session() as sess:
             ckpt = tf.train.latest_checkpoint(self.MODEL_DIC)  # 找到存储变量值的位置
             saver.restore(sess, ckpt)
-            predict = sess.run(self.score, {self.x: x_test, self.seq_len: seqlen_test})
+            predict = sess.run(score, {self.x: x_test})
             return predict
 
-    def verify(self, x_dev, y_dev, seqlen_dev):
+    def verify(self, x_dev, y_dev, seqlen_dev=None):
         # 验证集上做一下验证
         dev_predict = self.predict(x_dev, seqlen_dev)
         dev_predict = np.argmax(dev_predict, axis=1)
@@ -198,9 +206,9 @@ class Model:
         target_names = ['False News', 'True News']
         return classification_report(y_true, y_pre, target_names=target_names)
 
-    def output(self, x_test, y_id, seqlen_test, path):
+    def output(self, x_test, y_id, path):
         # 结果输出
-        test_predict = self.predict(x_test, seqlen_test)
+        test_predict = self.predict(x_test)
         test_predict = np.argmax(test_predict, axis=1)
         test_predict = list(test_predict)
         y_test = []
