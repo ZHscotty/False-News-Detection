@@ -8,7 +8,7 @@ from sklearn.metrics import classification_report
 class Model:
     """docstring for ClassName"""
 
-    def __init__(self):
+    def __init__(self, emb_matrix=None):
         self.EMBED_SIZE = 200
         self.VOCAB_SIZE = 76781
         self.HIDDEN_SIZE = 80
@@ -28,6 +28,7 @@ class Model:
         self.ACC_PATH = '../result/cnn_acc'
         self.LOSS_PATH = '../result/cnn_loss'
         self.mode = None
+        self.emd_matrix = emb_matrix
         self.score, self.acc, self.loss, self.train_step = self.run()
 
     def attention(self, scope_name, input_tensor, input_size, output_size):
@@ -69,12 +70,15 @@ class Model:
     def run(self):
         # 1.Embedding
         # embedd 是词的向量表示
-        embed_maxtrix = tf.get_variable('embedding', [self.VOCAB_SIZE, self.EMBED_SIZE],
-                                        initializer=tf.random_normal_initializer)
+        if self.emd_matrix is not None:
+            embed_maxtrix = tf.get_variable('embedding', [self.VOCAB_SIZE, self.EMBED_SIZE],
+                                            initializer=tf.constant_initializer(self.emd_matrix))
+        else:
+            embed_maxtrix = tf.get_variable('embedding', [self.VOCAB_SIZE, self.EMBED_SIZE],
+                                            initializer=tf.random_normal_initializer)
         # shape = (batch, maxlen, embedding_size)
         embedd = tf.nn.embedding_lookup(embed_maxtrix, self.x)
         embedd = tf.expand_dims(embedd, axis=3)
-
 
         # 2.cnn
         filter_shape = [self.FILTER_SIZE, self.EMBED_SIZE, 1, self.FILTER_NUM]
@@ -85,9 +89,8 @@ class Model:
             # shape = (batch, maxlen-k+1, 1, filter_num)
             cnn = tf.nn.bias_add(cnn, b)
         # shape = (batch, maxlen-k+1, filter_num)
-        cnn_output = tf.reshape(cnn, shape=[-1, self.MAXLEN-self.FILTER_SIZE+1, self.FILTER_NUM])
+        cnn_output = tf.reshape(cnn, shape=[-1, self.MAXLEN - self.FILTER_SIZE + 1, self.FILTER_NUM])
         cnn_output = tf.reduce_mean(cnn_output, axis=1)
-
 
         # 3.Dense Layer
         # lstm_output shape(batch, maxlen, hidd_size)
@@ -124,8 +127,10 @@ class Model:
             while step < epoch and (self.should_stop is False):
                 print('Epoch:{}'.format(step))
                 begin = 0
-                for i in range(len(x_train) // self.BATCH_SIZE):
+                for i in range(len(x_train) // self.BATCH_SIZE + 1):
                     end = begin + self.BATCH_SIZE
+                    if end > len(x_train):
+                        end = len(x_train)
                     x_batch = x_train[begin:end]
                     y_batch = y_train[begin:end]
                     begin = end

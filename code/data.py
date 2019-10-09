@@ -4,16 +4,16 @@ import jieba
 import re
 import collections
 import matplotlib.pyplot as plt
-from keras.preprocessing.sequence import pad_sequences
-from keras.utils import to_categorical
+# from keras.preprocessing.sequence import pad_sequences
+# from keras.utils import to_categorical
 
 class Data:
     def __init__(self, train_path=None, test_path=None):
         self.train_path = train_path
         self.test_path = test_path
         self.text_train, self.label, self.text_test, self.text_id = self.load_data()
-        self.train_id, self.label, self.test_id, self.word2index, self.seq_len = self.data_process(self.text_train, self.label, self.text_test)
-        self.index2word = self.index2word(self.word2index)
+        #self.train_id, self.label, self.test_id, self.word2index, self.seq_len = self.data_process(self.text_train, self.label, self.text_test)
+        #self.index2word = self.index2word(self.word2index)
 
     def load_data(self):
         train_data = pd.read_csv(self.train_path, encoding='utf-8')
@@ -91,22 +91,39 @@ class Data:
             words_id.extend(x)
         return words_id
 
-    def get_embedding_set(self, words_id, mode, window_size=None):
+    def get_embedding_set(self, mode, window_size=None):
+        train_seg, _ = self.segement(self.text_train)
+        test_seg, _ = self.segement(self.text_test)
+        word_seg = train_seg + test_seg
+        print(len(word_seg))
         if mode == 'cbow':
-            start = 0
             x = []
             y = []
-            while start+window_size <= len(words_id):
-                x_temp = words_id[start:start + window_size]
-                y_temp = [words_id[start + (window_size // 2)]]
-                x_temp.pop(window_size // 2)
-                x.append(x_temp)
-                y.append(y_temp)
-                start += 1
+            for words_id in word_seg:
+                for _ in range(window_size//2):
+                    words_id.insert(0, 'PAD')
+                    words_id.append('PAD')
+                start = 0
+
+                while start+window_size <= len(words_id):
+                    x_temp = words_id[start:start + window_size]
+                    y_temp = [words_id[start + (window_size // 2)]]
+                    x_temp.pop(window_size // 2)
+                    x.append(x_temp)
+                    y.append(y_temp)
+                    start += 1
+
             return x, y
 
-
-
+if __name__ == '__main__':
+    path_train = '../data/train.csv'
+    path_test = '../data/test_stage1.csv'
+    data = Data(path_train, path_test)
+    x, y = data.get_embedding_set(mode='cbow', window_size=3)
+    print(x[:10])
+    print(y[:10])
+    print(len(x))
+    print(len(y))
 
 
 
