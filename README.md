@@ -15,3 +15,9 @@
 | BERT+CNN+ATT | 0.88 | [MODEL]()
 | BERT+BIATT | 0.87 | [MODEL]()
 | 三种BERT模型融合 | 0.88 | [MODEL]()
+
+## 心得感悟：
+1. 没有充分利用Bert得到的字向量，过度依赖于Bert-Finetune
+2. 没有思考过Bert训练出的字向量和词向量的结合，作为输入
+3. text-CNN没有利用好
+4. 交叉验证的重要性
